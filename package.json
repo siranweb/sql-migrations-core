@@ -1,0 +1,26 @@
+{
+  "name": "sql-migrations-core",
+  "version": "1.0.0",
+  "description": "",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "ts-check": "tsc --noEmit",
+    "lint": "eslint --max-warnings 0 --ext .ts lib",
+    "format": "prettier --log-level warn --write lib"
+  },
+  "author": "siranweb",
+  "license": "ISC",
+  "engines": {
+    "node": ">=16.11"
+  },
+  "devDependencies": {
+    "@types/node": "16.11",
+    "typescript": "^5.4.3",
+    "eslint": "^8.57.0",
+    "eslint-config-prettier": "^8.10.0",
+    "@typescript-eslint/eslint-plugin": "^6.21.0",
+    "@typescript-eslint/parser": "^6.21.0",
+    "prettier": "^3.2.5"
+  }
+}

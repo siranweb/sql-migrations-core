@@ -19,7 +19,7 @@ export class LocalMigrations implements ILocalMigrations {
   }
 
   public async create(name: string): Promise<void> {
-    await this.makeDirPathIfNotExists();
+    await this.initMigrationsDir();
 
     const filenames = [this.makeFilename(name, 'up'), this.makeFilename(name, 'down')];
 
@@ -27,47 +27,26 @@ export class LocalMigrations implements ILocalMigrations {
     await Promise.all(promises);
   }
 
-  public async getManyMigrationNames(direction?: MigrationDirection): Promise<string[]> {
-    const filenames = await fsp.readdir(this.dirPath);
-    const filteredFilenames = this.filterMigrationFilenames(filenames, direction);
-    const sortedFilenames = this.sortMigrationFilenames(filteredFilenames);
-
-    return sortedFilenames.map((filename) => this.extractName(filename));
-  }
-
-  public async getNextMigrationName(
+  public async getNextMigration(
     name: string,
     direction: MigrationDirection,
-  ): Promise<string | null> {
-    const currentFilename = this.makeFilename(name, direction);
-    const currentMigrationPath = this.makeMigrationPath(currentFilename);
+  ): Promise<Migration | null> {
+    await this.initMigrationsDir();
 
-    const isCurrentMigrationExists = await this.checkIsPathExists(currentMigrationPath);
-    if (!isCurrentMigrationExists) {
+    const nextMigrationName = await this.getNextMigrationName(name, direction);
+    if (!nextMigrationName) {
       return null;
     }
 
-    const migrationNames = await this.getManyMigrationNames(direction);
-    const currentFilenameIndex = migrationNames.indexOf(name);
-    const nextMigrationNameIndex = currentFilenameIndex + 1;
-    const nextMigrationName = migrationNames[nextMigrationNameIndex];
-
-    return nextMigrationName ?? null;
-  }
-
-  private extractName(filename: string): string {
-    let postfixIndex = filename.lastIndexOf(this.postfix.up);
-    if (postfixIndex === -1) {
-      postfixIndex = filename.lastIndexOf(this.postfix.down);
-    }
-
-    return postfixIndex === -1 ? filename : filename.substring(0, postfixIndex);
+    return this.getMigration(nextMigrationName, direction);
   }
 
   public async getMigration(
     name: string,
     direction: MigrationDirection,
   ): Promise<Migration | null> {
+    await this.initMigrationsDir();
+
     const filename = this.makeFilename(name, direction);
     const migrationPath = this.makeMigrationPath(filename);
     const isMigrationExists = await this.checkIsPathExists(migrationPath);
@@ -80,6 +59,43 @@ export class LocalMigrations implements ILocalMigrations {
       sql: await fsp.readFile(migrationPath, 'utf8'),
       name,
     };
+  }
+
+  private async getNextMigrationName(
+    name: string,
+    direction: MigrationDirection,
+  ): Promise<string | null> {
+    const currentFilename = this.makeFilename(name, direction);
+    const currentMigrationPath = this.makeMigrationPath(currentFilename);
+
+    const isCurrentMigrationExists = await this.checkIsPathExists(currentMigrationPath);
+    if (!isCurrentMigrationExists) {
+      return null;
+    }
+
+    const migrationNames = await this.getMigrationNames(direction);
+    const currentFilenameIndex = migrationNames.indexOf(name);
+    const nextMigrationNameIndex = currentFilenameIndex + 1;
+    const nextMigrationName = migrationNames[nextMigrationNameIndex];
+
+    return nextMigrationName ?? null;
+  }
+
+  private async getMigrationNames(direction?: MigrationDirection): Promise<string[]> {
+    const filenames = await fsp.readdir(this.dirPath);
+    const filteredFilenames = this.filterMigrationFilenames(filenames, direction);
+    const sortedFilenames = this.sortMigrationFilenames(filteredFilenames);
+
+    return sortedFilenames.map((filename) => this.extractName(filename));
+  }
+
+  private extractName(filename: string): string {
+    let postfixIndex = filename.lastIndexOf(this.postfix.up);
+    if (postfixIndex === -1) {
+      postfixIndex = filename.lastIndexOf(this.postfix.down);
+    }
+
+    return postfixIndex === -1 ? filename : filename.substring(0, postfixIndex);
   }
 
   private sortMigrationFilenames(filenames: string[]): string[] {
@@ -107,7 +123,7 @@ export class LocalMigrations implements ILocalMigrations {
     return path.join(this.dirPath, filename);
   }
 
-  private async makeDirPathIfNotExists(): Promise<void> {
+  private async initMigrationsDir(): Promise<void> {
     try {
       await fsp.access(this.dirPath, fsp.constants.W_OK);
     } catch (err: unknown) {

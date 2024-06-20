@@ -5,14 +5,16 @@ import {
 } from './types/migrations-core.interface';
 import { ILocalMigrations } from './types/local-migrations.interface';
 import { LocalMigrations } from './local-migrations';
-import { MigrationName } from './types/shared';
+import { IStoredMigrations } from './types/stored-migrations.interface';
+import { StoredMigrations } from './stored-migrations';
 
 export class MigrationsCore implements IMigrationsCore {
   private readonly actions: MigrationActions;
   private readonly localMigrations: ILocalMigrations;
+  private readonly storedMigrations: IStoredMigrations;
 
   constructor(config: MigrationsCoreConfig) {
-    this.actions = config.actions;
+    this.actions = config.sqlActions;
 
     this.localMigrations = new LocalMigrations({
       postfix: config.postfix ?? {
@@ -20,6 +22,16 @@ export class MigrationsCore implements IMigrationsCore {
         down: '.down.sql',
       },
       dirPath: config.path,
+    });
+
+    this.storedMigrations = new StoredMigrations({
+      sqlActions: {
+        createTable: config.sqlActions.createMigrationTable,
+        getLastName: config.sqlActions.getLastMigrationName,
+        getNames: config.sqlActions.getMigrationsNames,
+        migrateDown: config.sqlActions.migrateDown,
+        migrateUp: config.sqlActions.migrateUp,
+      },
     });
   }
 
@@ -34,72 +46,55 @@ export class MigrationsCore implements IMigrationsCore {
     return Promise.resolve(undefined);
   }
 
-  public async to(_partialMigrationName: MigrationName): Promise<void> {
+  public async to(_partialMigrationName: string): Promise<void> {
     return Promise.resolve(undefined);
   }
 
   public async down(): Promise<void> {
-    const storedMigrationNames = await this.getStoredMigrationNames();
-    const currentMigrationName = storedMigrationNames.at(-1);
+    await this.storedMigrations.initTable();
 
-    if (!currentMigrationName) {
+    const lastMigrationName = await this.storedMigrations.getLastMigrationName();
+
+    if (!lastMigrationName) {
       // TODO ?
       return;
     }
 
-    const migration = await this.localMigrations.getMigration(currentMigrationName, 'down');
+    const migration = await this.localMigrations.getMigration(lastMigrationName, 'down');
 
     if (!migration) {
       // TODO ?
       return;
     }
 
-    await this.actions.downMigrations([migration]);
+    await this.actions.migrateDown([migration]);
   }
 
   public async up(): Promise<void> {
-    const storedMigrationNames = await this.getStoredMigrationNames();
-    const currentMigrationName = storedMigrationNames.at(-1);
+    await this.storedMigrations.initTable();
 
-    if (!currentMigrationName) {
+    const lastMigrationName = await this.storedMigrations.getLastMigrationName();
+
+    if (!lastMigrationName) {
       // TODO ?
       return;
     }
 
-    const nextMigrationName = await this.localMigrations.getNextMigrationName(
-      currentMigrationName,
-      'up',
-    );
-
-    if (!nextMigrationName) {
-      // TODO ?
-      return;
-    }
-
-    const migration = await this.localMigrations.getMigration(nextMigrationName, 'up');
+    const migration = await this.localMigrations.getNextMigration(lastMigrationName, 'up');
 
     if (!migration) {
       // TODO ?
       return;
     }
 
-    await this.actions.upMigrations([migration]);
+    await this.actions.migrateUp([migration]);
   }
 
   public async drop(): Promise<void> {
     return Promise.resolve(undefined);
   }
 
-  private async getStoredMigrationNames(): Promise<MigrationName[]> {
-    const stored = await this.actions.getMigrationNames();
-    return stored.sort(this.migrationNamesSortFunc);
-  }
-
-  private migrationNamesSortFunc(a: string, b: string): number {
-    return a < b ? -1 : 1;
-  }
-
-  private makeName(title: string, timestamp: number): MigrationName {
+  private makeName(title: string, timestamp: number): string {
     return `${timestamp.toString()}-${title}`;
   }
 }

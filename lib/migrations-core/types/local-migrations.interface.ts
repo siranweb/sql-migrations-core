@@ -11,31 +11,21 @@ export interface ILocalMigrations {
    * Get migration object.
    * @param name Name of migration.
    * @param direction Direction of migration (up, down).
+   * @returns Migration object if exists.
    */
   getMigration(name: string, direction: MigrationDirection): Promise<Migration | null>;
 
   /**
-   * Get next migration name.
+   * Get next migration object.
    * @param name Name of migration.
    * @param direction Direction of migration (up, down).
+   * @returns Migration object if exists.
    */
-  getNextMigrationName(name: string, direction: MigrationDirection): Promise<string | null>;
-
-  /**
-   * Get sorted migration names.
-   * @param [direction] Returns only migration filenames in provided migration.
-   */
-  getManyMigrationNames(direction?: MigrationDirection): Promise<string[]>;
+  getNextMigration(name: string, direction: MigrationDirection): Promise<Migration | null>;
 }
 
 export type LocalMigrationsConfig = {
-  /** Postfix of sql migration files. */
   postfix: Postfix;
-
-  /**
-   * Path to migrations directory.
-   * If there is no such path - it will be created.
-   */
   dirPath: string;
 };
 

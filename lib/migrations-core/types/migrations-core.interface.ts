@@ -1,3 +1,5 @@
+import { Migration, MigrationName } from './shared';
+
 export interface IMigrationsCore {
   /** Run one migration up. */
   up(): Promise<void>;
@@ -56,13 +58,4 @@ export type MigrationActions = {
    * @returns Array of migration names.
    */
   getMigrationNames: () => Promise<MigrationName[]>;
-};
-
-export type MigrationName = string;
-export type Filename = string;
-export type Filepath = string;
-export type MigrationDirection = 'up' | 'down';
-export type Migration = {
-  sql: string;
-  name: string;
 };

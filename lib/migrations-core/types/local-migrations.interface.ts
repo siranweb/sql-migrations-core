@@ -25,9 +25,27 @@ export interface ILocalMigrations {
 
   /**
    * Get migrations names.
+   * @returns Names of migrations.
    */
   getMigrationNames(): Promise<string[]>;
+
+  /**
+   * Get migrations names in range with direction.
+   * @param [from] Name of migration. If not provided - take first local migration.
+   * @param [to] Name of migration. If not provided - take last local migration.
+   * @returns Sequence of migrations names.
+   * If direction is `down` - returns names in descending order.
+   */
+  getMigrationNamesSequence(
+    from?: string | null,
+    to?: string | null,
+  ): Promise<MigrationNamesSequence>;
 }
+
+export type MigrationNamesSequence = {
+  names: string[];
+  direction: MigrationDirection;
+};
 
 export type LocalMigrationsConfig = {
   postfix: Postfix;

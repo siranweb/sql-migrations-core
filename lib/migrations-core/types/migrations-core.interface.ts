@@ -22,8 +22,11 @@ export interface IMigrationsCore {
 
   /**
    * Run all pending up migrations.
+   * If used with chunks - calls migrate function multiple times one by one.
+   * @param [chunkSize] Size of chunk.
+   * @returns Results of migrations that were executed.
    */
-  toLatest(): Promise<void>;
+  toLatest(chunkSize?: number): Promise<MigrationResult[]>;
 
   /**
    * Run all up or down migrations from current to selected.

@@ -2,6 +2,7 @@ import path from 'node:path';
 import {
   ILocalMigrations,
   LocalMigrationsConfig,
+  MigrationNamesSequence,
   Postfix,
 } from './types/local-migrations.interface';
 import fsp from 'node:fs/promises';
@@ -61,6 +62,55 @@ export class LocalMigrations implements ILocalMigrations {
     };
   }
 
+  public async getMigrationNames(): Promise<string[]> {
+    const filenames = await fsp.readdir(this.dirPath);
+    const names = filenames.map((filename) => this.extractName(filename));
+    const uniqueNames = Array.from(new Set(names));
+    return this.sortMigrationFilenames(uniqueNames);
+  }
+
+  public async getMigrationNamesSequence(
+    from?: string,
+    to?: string,
+  ): Promise<MigrationNamesSequence> {
+    const localMigrationsNames = await this.getMigrationNames();
+
+    if (localMigrationsNames.length === 0) {
+      return {
+        names: [],
+        direction: 'up',
+      };
+    }
+
+    const fromMigrationNameIndex = from ? localMigrationsNames.indexOf(from) : 0;
+    const toMigrationNameIndex = to
+      ? localMigrationsNames.indexOf(to)
+      : localMigrationsNames.length - 1;
+
+    const areFound = fromMigrationNameIndex !== -1 && toMigrationNameIndex !== -1;
+    const areSame = fromMigrationNameIndex === toMigrationNameIndex;
+    if (!areFound || areSame) {
+      return {
+        names: [],
+        direction: 'up',
+      };
+    }
+
+    if (fromMigrationNameIndex < toMigrationNameIndex) {
+      return {
+        names: localMigrationsNames.slice(fromMigrationNameIndex, toMigrationNameIndex + 1),
+        direction: 'up',
+      };
+    } else {
+      return {
+        names: localMigrationsNames
+          .slice(toMigrationNameIndex, fromMigrationNameIndex + 1)
+          .reverse(),
+        direction: 'down',
+      };
+    }
+  }
+
   private async getNextMigrationName(
     name: string,
     direction: MigrationDirection,
@@ -79,13 +129,6 @@ export class LocalMigrations implements ILocalMigrations {
     const nextMigrationName = migrationNames[nextMigrationNameIndex];
 
     return nextMigrationName ?? null;
-  }
-
-  public async getMigrationNames(): Promise<string[]> {
-    const filenames = await fsp.readdir(this.dirPath);
-    const names = filenames.map((filename) => this.extractName(filename));
-    const uniqueNames = Array.from(new Set(names));
-    return this.sortMigrationFilenames(uniqueNames);
   }
 
   private extractName(filename: string): string {

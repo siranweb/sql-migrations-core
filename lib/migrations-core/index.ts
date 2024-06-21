@@ -39,46 +39,37 @@ export class MigrationsCore implements IMigrationsCore {
     return migrationName;
   }
 
-  public async toLatest(): Promise<void> {
-    return Promise.resolve(undefined);
+  public async toLatest(chunkSize?: number): Promise<MigrationResult[]> {
+    const latestStoredMigrationName = await this.storedMigrations.getLatestMigrationName();
+    const { names, direction } =
+      await this.localMigrations.getMigrationNamesSequence(latestStoredMigrationName);
+
+    if (names.length === 0) {
+      return [];
+    }
+
+    await this.migrateBunch(names, direction, chunkSize);
+
+    return names.map((name) => ({
+      name,
+      direction,
+    }));
   }
 
   public async to(migrationName: string, chunkSize?: number): Promise<MigrationResult[]> {
     const latestStoredMigrationName = await this.storedMigrations.getLatestMigrationName();
-    const localMigrationsNames = await this.localMigrations.getMigrationNames();
+    const { names, direction } = await this.localMigrations.getMigrationNamesSequence(
+      latestStoredMigrationName,
+      migrationName,
+    );
 
-    const selectedMigrationNameIndex = localMigrationsNames.indexOf(migrationName);
-    if (selectedMigrationNameIndex === -1) {
-      throw new Error(); // TODO
-    }
-
-    const latestStoredMigrationNameIndex = latestStoredMigrationName
-      ? localMigrationsNames.indexOf(latestStoredMigrationName)
-      : -1;
-
-    if (selectedMigrationNameIndex === latestStoredMigrationNameIndex) {
+    if (names.length === 0) {
       return [];
     }
 
-    let migrationNames: string[];
-    let direction: MigrationDirection;
-    if (selectedMigrationNameIndex > latestStoredMigrationNameIndex) {
-      migrationNames = localMigrationsNames.slice(
-        latestStoredMigrationNameIndex + 1,
-        selectedMigrationNameIndex + 1,
-      );
-      direction = 'up';
-    } else {
-      migrationNames = localMigrationsNames.slice(
-        selectedMigrationNameIndex + 1,
-        latestStoredMigrationNameIndex + 1,
-      );
-      direction = 'down';
-    }
+    await this.migrateBunch(names, direction, chunkSize);
 
-    await this.migrateBunch(migrationNames, direction, chunkSize);
-
-    return migrationNames.map((name) => ({
+    return names.map((name) => ({
       name,
       direction,
     }));

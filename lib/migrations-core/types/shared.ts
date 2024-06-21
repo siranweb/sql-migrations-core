@@ -1,7 +1,13 @@
 export type MigrationDirection = 'up' | 'down';
+
 export type Migration = {
   sql: string;
   name: string;
+};
+
+export type MigrationResult = {
+  name: string;
+  direction: MigrationDirection;
 };
 
 export type CreateMigrationsTableFunc = () => Promise<void>;

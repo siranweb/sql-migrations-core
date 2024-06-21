@@ -73,7 +73,7 @@ export class LocalMigrations implements ILocalMigrations {
       return null;
     }
 
-    const migrationNames = await this.getMigrationNames(direction);
+    const migrationNames = await this.getMigrationNames();
     const currentFilenameIndex = migrationNames.indexOf(name);
     const nextMigrationNameIndex = currentFilenameIndex + 1;
     const nextMigrationName = migrationNames[nextMigrationNameIndex];
@@ -81,12 +81,11 @@ export class LocalMigrations implements ILocalMigrations {
     return nextMigrationName ?? null;
   }
 
-  private async getMigrationNames(direction?: MigrationDirection): Promise<string[]> {
+  public async getMigrationNames(): Promise<string[]> {
     const filenames = await fsp.readdir(this.dirPath);
-    const filteredFilenames = this.filterMigrationFilenames(filenames, direction);
-    const sortedFilenames = this.sortMigrationFilenames(filteredFilenames);
-
-    return sortedFilenames.map((filename) => this.extractName(filename));
+    const names = filenames.map((filename) => this.extractName(filename));
+    const uniqueNames = Array.from(new Set(names));
+    return this.sortMigrationFilenames(uniqueNames);
   }
 
   private extractName(filename: string): string {

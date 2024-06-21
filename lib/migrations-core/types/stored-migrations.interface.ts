@@ -16,10 +16,10 @@ export interface IStoredMigrations {
   getMigrationsNames(): Promise<string[]>;
 
   /**
-   * Get last migrated name of migration.
+   * Get latest migrated name of migration.
    * @returns Migration name if exists.
    */
-  getLastMigrationName(): Promise<string | null>;
+  getLatestMigrationName(): Promise<string | null>;
 
   /**
    * Migrations table initialization.

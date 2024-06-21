@@ -13,7 +13,7 @@ export class StoredMigrations implements IStoredMigrations {
     this.sqlActions = config.sqlActions;
   }
 
-  public async getLastMigrationName(): Promise<string | null> {
+  public async getLatestMigrationName(): Promise<string | null> {
     if (this.sqlActions.getLastName) {
       return this.sqlActions.getLastName();
     }

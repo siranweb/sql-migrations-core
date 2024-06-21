@@ -22,6 +22,11 @@ export interface ILocalMigrations {
    * @returns Migration object if exists.
    */
   getNextMigration(name: string, direction: MigrationDirection): Promise<Migration | null>;
+
+  /**
+   * Get migrations names.
+   */
+  getMigrationNames(): Promise<string[]>;
 }
 
 export type LocalMigrationsConfig = {

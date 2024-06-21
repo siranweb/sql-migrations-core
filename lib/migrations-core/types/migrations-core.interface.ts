@@ -4,18 +4,21 @@ import {
   GetMigrationsNamesFunc,
   MigrateDownFunc,
   MigrateUpFunc,
+  MigrationResult,
 } from './shared';
 
 export interface IMigrationsCore {
   /**
    * Run one migration up.
+   * @returns Result of migration that was executed.
    */
-  up(): Promise<void>;
+  up(): Promise<MigrationResult | null>;
 
   /**
    * Run one migration down.
+   * @returns Result of migration that was executed.
    */
-  down(): Promise<void>;
+  down(): Promise<MigrationResult | null>;
 
   /**
    * Run all pending up migrations.
@@ -23,22 +26,29 @@ export interface IMigrationsCore {
   toLatest(): Promise<void>;
 
   /**
-   * Run all up/down migrations from current to selected.
-   * @param partialMigrationName Accepts partial name of migration,
-   * so you don't need to write the whole name.
+   * Run all up or down migrations from current to selected.
+   * If used with chunks - calls migrate function multiple times one by one.
+   * @param migrationName Name of selected migration.
+   * @param [chunkSize] Size of chunk.
+   * @returns Results of migrations that were executed.
    */
-  to(partialMigrationName: string): Promise<void>;
+  to(migrationName: string, chunkSize?: number): Promise<MigrationResult[]>;
 
   /**
    * Runs all down migrations.
+   * If used with chunks - calls migrate function multiple times one by one.
+   * @param [chunkSize] Size of chunk.
+   * If not provided or `0` - migrations will not be split on chunks.
+   * @returns Results of migrations that were executed.
    */
-  drop(): Promise<void>;
+  drop(chunkSize?: number): Promise<MigrationResult[]>;
 
   /**
    * Create blank migration files in provided path.
    * @param title Migration title or description. Used to create migration name.
+   * @returns Name of created migration.
    */
-  create(title: string): Promise<void>;
+  create(title: string): Promise<string>;
 }
 
 export type MigrationsCoreConfig = {

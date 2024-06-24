@@ -10,6 +10,11 @@ export type MigrationResult = {
   direction: MigrationDirection;
 };
 
+export type MigrationStatus = {
+  name: string;
+  synced: boolean;
+};
+
 export type CreateMigrationsTableFunc = () => Promise<void>;
 export type MigrateUpFunc = (migrations: Migration[]) => Promise<void>;
 export type MigrateDownFunc = (migrations: Migration[]) => Promise<void>;

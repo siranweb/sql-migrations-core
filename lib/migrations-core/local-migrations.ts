@@ -20,8 +20,6 @@ export class LocalMigrations implements ILocalMigrations {
   }
 
   public async create(name: string): Promise<void> {
-    await this.initMigrationsDir();
-
     const filenames = [this.makeFilename(name, 'up'), this.makeFilename(name, 'down')];
 
     const promises = filenames.map((filename) => this.createEmptyMigration(filename));
@@ -32,8 +30,6 @@ export class LocalMigrations implements ILocalMigrations {
     name: string,
     direction: MigrationDirection,
   ): Promise<Migration | null> {
-    await this.initMigrationsDir();
-
     const nextMigrationName = await this.getNextMigrationName(name, direction);
     if (!nextMigrationName) {
       return null;
@@ -46,8 +42,6 @@ export class LocalMigrations implements ILocalMigrations {
     name: string,
     direction: MigrationDirection,
   ): Promise<Migration | null> {
-    await this.initMigrationsDir();
-
     const filename = this.makeFilename(name, direction);
     const migrationPath = this.makeMigrationPath(filename);
     const isMigrationExists = await this.checkIsPathExists(migrationPath);
@@ -144,15 +138,6 @@ export class LocalMigrations implements ILocalMigrations {
     return [...filenames].sort(ascSort);
   }
 
-  private filterMigrationFilenames(filenames: string[], direction?: MigrationDirection): string[] {
-    if (!direction) {
-      return filenames;
-    }
-
-    const postfix = this.postfix[direction];
-    return filenames.filter((filename) => filename.endsWith(postfix));
-  }
-
   private async createEmptyMigration(filename: string): Promise<void> {
     await fsp.appendFile(this.makeMigrationPath(filename), '');
   }
@@ -163,18 +148,6 @@ export class LocalMigrations implements ILocalMigrations {
 
   private makeMigrationPath(filename: string): string {
     return path.join(this.dirPath, filename);
-  }
-
-  private async initMigrationsDir(): Promise<void> {
-    try {
-      await fsp.access(this.dirPath, fsp.constants.W_OK);
-    } catch (err: unknown) {
-      if (!isENOENT(err)) {
-        throw err;
-      }
-
-      await fsp.mkdir(this.dirPath, { recursive: true });
-    }
   }
 
   private async checkIsPathExists(path: string): Promise<boolean> {

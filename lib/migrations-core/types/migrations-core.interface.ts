@@ -5,6 +5,7 @@ import {
   MigrateDownFunc,
   MigrateUpFunc,
   MigrationResult,
+  MigrationStatus,
 } from './shared';
 
 export interface IMigrationsCore {
@@ -21,12 +22,26 @@ export interface IMigrationsCore {
   down(): Promise<MigrationResult | null>;
 
   /**
-   * Run all pending up migrations.
+   * Run pending up migrations from the latest.
    * If used with chunks - calls migrate function multiple times one by one.
    * @param [chunkSize] Size of chunk.
    * @returns Results of migrations that were executed.
    */
   toLatest(chunkSize?: number): Promise<MigrationResult[]>;
+
+  /**
+   * Run all pending up migrations.
+   * If used with chunks - calls migrate function multiple times one by one.
+   * @param [chunkSize] Size of chunk.
+   * @returns Results of migrations that were executed.
+   */
+  sync(chunkSize?: number): Promise<MigrationResult[]>;
+
+  /**
+   * Get status about pending and finished migrations.
+   * @returns Statuses of migrations.
+   */
+  status(): Promise<MigrationStatus[]>;
 
   /**
    * Run all up or down migrations from current to selected.
@@ -51,7 +66,7 @@ export interface IMigrationsCore {
    * @param title Migration title or description. Used to create migration name.
    * @returns Name of created migration.
    */
-  create(title: string): Promise<string>;
+  createFile(title: string): Promise<string>;
 }
 
 export type MigrationsCoreConfig = {

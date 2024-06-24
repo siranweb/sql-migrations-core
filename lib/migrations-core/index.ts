@@ -4,14 +4,14 @@ import { LocalMigrations } from './local-migrations';
 import { IStoredMigrations } from './types/stored-migrations.interface';
 import { StoredMigrations } from './stored-migrations';
 import { executeWithChunks } from '../utils/chunks';
-import { Migration, MigrationDirection, MigrationResult } from './types/shared';
+import { Migration, MigrationDirection, MigrationResult, MigrationStatus } from './types/shared';
 
 export class MigrationsCore implements IMigrationsCore {
   private readonly localMigrations: ILocalMigrations;
   private readonly storedMigrations: IStoredMigrations;
 
-  constructor(config: MigrationsCoreConfig) {
-    this.localMigrations = new LocalMigrations({
+  static create(config: MigrationsCoreConfig): MigrationsCore {
+    const localMigrations = new LocalMigrations({
       postfix: config.postfix ?? {
         up: '.up.sql',
         down: '.down.sql',
@@ -19,7 +19,7 @@ export class MigrationsCore implements IMigrationsCore {
       dirPath: config.path,
     });
 
-    this.storedMigrations = new StoredMigrations({
+    const storedMigrations = new StoredMigrations({
       sqlActions: {
         createTable: config.sqlActions.createMigrationTable,
         getLastName: config.sqlActions.getLastMigrationName,
@@ -28,9 +28,16 @@ export class MigrationsCore implements IMigrationsCore {
         migrateUp: config.sqlActions.migrateUp,
       },
     });
+
+    return new MigrationsCore(localMigrations, storedMigrations);
   }
 
-  public async create(title: string): Promise<string> {
+  constructor(localMigrations: ILocalMigrations, storedMigrations: IStoredMigrations) {
+    this.localMigrations = localMigrations;
+    this.storedMigrations = storedMigrations;
+  }
+
+  public async createFile(title: string): Promise<string> {
     const timestamp = Date.now();
 
     const migrationName = this.makeName(title, timestamp);
@@ -39,7 +46,35 @@ export class MigrationsCore implements IMigrationsCore {
     return migrationName;
   }
 
+  public async sync(chunkSize?: number): Promise<MigrationResult[]> {
+    await this.storedMigrations.initTable();
+
+    const status = await this.status();
+    const unsyncedMigrationsNames = status
+      .filter((migrationStatus) => !migrationStatus.synced)
+      .map((migrationStatus) => migrationStatus.name);
+
+    await this.migrateBunch(unsyncedMigrationsNames, 'up', chunkSize);
+
+    return [];
+  }
+
+  public async status(): Promise<MigrationStatus[]> {
+    const [localMigrationsNames, storedMigrationsNames] = await Promise.all([
+      this.localMigrations.getMigrationNames(),
+      this.storedMigrations.getMigrationsNames(),
+    ]);
+    const storedMigrationsNamesSet = new Set(storedMigrationsNames);
+
+    return localMigrationsNames.map((name) => ({
+      name,
+      synced: storedMigrationsNamesSet.has(name),
+    }));
+  }
+
   public async toLatest(chunkSize?: number): Promise<MigrationResult[]> {
+    await this.storedMigrations.initTable();
+
     const latestStoredMigrationName = await this.storedMigrations.getLatestMigrationName();
     const { names, direction } =
       await this.localMigrations.getMigrationNamesSequence(latestStoredMigrationName);
@@ -57,6 +92,8 @@ export class MigrationsCore implements IMigrationsCore {
   }
 
   public async to(migrationName: string, chunkSize?: number): Promise<MigrationResult[]> {
+    await this.storedMigrations.initTable();
+
     const latestStoredMigrationName = await this.storedMigrations.getLatestMigrationName();
     const { names, direction } = await this.localMigrations.getMigrationNamesSequence(
       latestStoredMigrationName,

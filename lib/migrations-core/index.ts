@@ -60,6 +60,8 @@ export class MigrationsCore implements IMigrationsCore {
   }
 
   public async status(): Promise<MigrationStatus[]> {
+    await this.storedMigrations.initTable();
+
     const [localMigrationsNames, storedMigrationsNames] = await Promise.all([
       this.localMigrations.getMigrationNames(),
       this.storedMigrations.getMigrationsNames(),

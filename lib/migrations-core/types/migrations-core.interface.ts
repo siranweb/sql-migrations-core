@@ -66,7 +66,7 @@ export interface IMigrationsCore {
    * @param title Migration title or description. Used to create migration name.
    * @returns Name of created migration.
    */
-  createFile(title: string): Promise<string>;
+  createFiles(title: string): Promise<string>;
 }
 
 export type MigrationsCoreConfig = {

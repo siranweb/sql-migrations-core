@@ -37,7 +37,7 @@ export class MigrationsCore implements IMigrationsCore {
     this.storedMigrations = storedMigrations;
   }
 
-  public async createFile(title: string): Promise<string> {
+  public async createFiles(title: string): Promise<string> {
     const timestamp = Date.now();
 
     const migrationName = this.makeName(title, timestamp);

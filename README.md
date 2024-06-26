@@ -1,5 +1,5 @@
 <!-- TOC --><a name="sql-migrations-core"></a>
-# SQL Migrations Core
+# [WIP] SQL Migrations Core
 [![npm](https://img.shields.io/npm/v/sql-migrations-core.svg?maxAge=1000)](https://www.npmjs.com/package/sql-migrations-core)
 [![node](https://img.shields.io/node/v/sql-migrations-core.svg?maxAge=1000)](https://www.npmjs.com/package/sql-migrations-core)
 [![npm](https://img.shields.io/npm/l/sql-migrations-core.svg?maxAge=1000)](https://github.com/siranweb/sql-migrations-core/LICENSE.md)

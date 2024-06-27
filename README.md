@@ -245,16 +245,11 @@ const localMigrations = new LocalMigrations({
 
 const storedMigrations = new StoredMigrations({
   sqlActions: {
-    createMigrationTable() { /* ... */
-    },
-    migrateUp(migrations) { /* ... */
-    },
-    migrateDown(migrations) { /* ... */
-    },
-    getMigrationsNames() { /* ... */
-    },
-    getLastMigrationName() { /* ... */
-    },
+    createMigrationTable() { /* ... */ },
+    migrateUp(migrations) { /* ... */ },
+    migrateDown(migrations) { /* ... */ },
+    getMigrationsNames() { /* ... */ },
+    getLastMigrationName() { /* ... */ },
   }
 });
 

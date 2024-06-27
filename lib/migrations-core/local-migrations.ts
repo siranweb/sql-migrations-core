@@ -1,11 +1,12 @@
-import path from 'node:path';
+import path from 'path';
 import {
   ILocalMigrations,
   LocalMigrationsConfig,
   MigrationNamesSequence,
   Postfix,
 } from './types/local-migrations.interface';
-import fsp from 'node:fs/promises';
+import fsp from 'fs/promises';
+import fs from 'fs';
 import { isENOENT } from '../utils/errors';
 import { Migration, MigrationDirection } from './types/shared';
 import { ascSort } from '../utils/sorting';
@@ -152,7 +153,7 @@ export class LocalMigrations implements ILocalMigrations {
 
   private async checkIsPathExists(path: string): Promise<boolean> {
     try {
-      await fsp.access(path, fsp.constants.R_OK);
+      await fsp.access(path, fs.constants.R_OK);
     } catch (err: unknown) {
       if (!isENOENT(err)) {
         throw err;

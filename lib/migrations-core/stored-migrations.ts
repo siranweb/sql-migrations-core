@@ -33,6 +33,8 @@ export class StoredMigrations implements IStoredMigrations {
   }
 
   public async migrate(migrations: Migration[], direction: MigrationDirection): Promise<void> {
+    if (migrations.length === 0) return;
+
     if (direction === 'up') {
       await this.sqlActions.migrateUp(migrations);
     } else {

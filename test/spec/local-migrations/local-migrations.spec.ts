@@ -8,24 +8,26 @@ import {
   migrationFileInfo2,
   migrationFileInfo3,
   migrationFileInfo4, migrationFileInfo5, migrationFileInfo6, migrationNames,
-  migrations,
+  migrationsInfos,
 } from '../../stubs/migrations';
 
-describe('Local storage', () => {
+describe('Local migrations', () => {
 
   const upPostfix = '.up.sql';
   const downPostfix = '.down.sql';
   const migrationsDir = path.join(__dirname, 'migrations');
-  const localMigrations: ILocalMigrations = new LocalMigrations({
-    dirPath: migrationsDir,
-    postfix: {
-      up: upPostfix,
-      down: downPostfix,
-    }
-  });
+  let localMigrations: ILocalMigrations;
 
   beforeEach(async () => {
     await mkDirSafe(migrationsDir);
+
+    localMigrations = new LocalMigrations({
+      dirPath: migrationsDir,
+      postfix: {
+        up: upPostfix,
+        down: downPostfix,
+      }
+    });
   })
 
   afterEach(async () => {
@@ -41,10 +43,9 @@ describe('Local storage', () => {
     });
   });
 
-  describe('Migration files selection', () => {
-
+  describe('Migrations files selection', () => {
     beforeEach(async () => {
-      await Promise.all(migrations.map(async migrationInfo => {
+      await Promise.all(migrationsInfos.map(async migrationInfo => {
         const filepath = path.join(migrationsDir, migrationInfo.filename);
         await fsp.writeFile(filepath, migrationInfo.content);
       }))
@@ -88,6 +89,15 @@ describe('Local storage', () => {
       const migration = await localMigrations.getNextMigration('not-exists', 'up');
       expect(migration).toBe(null);
     });
+  })
+
+  describe('Migrations names selection', () => {
+    beforeEach(async () => {
+      await Promise.all(migrationsInfos.map(async migrationInfo => {
+        const filepath = path.join(migrationsDir, migrationInfo.filename);
+        await fsp.writeFile(filepath, migrationInfo.content);
+      }))
+    })
 
     test('getMigrationNames(): get ascending-sorted array of all migration names', async () => {
       const names = await localMigrations.getMigrationNames();

@@ -21,11 +21,11 @@ export class MigrationsCore implements IMigrationsCore {
 
     const storedMigrations = new StoredMigrations({
       sqlActions: {
-        createTable: config.sqlActions.createMigrationTable,
-        getLastName: config.sqlActions.getLastMigrationName,
-        getNames: config.sqlActions.getMigrationsNames,
-        migrateDown: config.sqlActions.migrateDown,
-        migrateUp: config.sqlActions.migrateUp,
+        createTable: config.sqlActions.createMigrationTable.bind(config.sqlActions),
+        getLastName: config.sqlActions.getLastMigrationName?.bind(config.sqlActions),
+        getNames: config.sqlActions.getMigrationsNames.bind(config.sqlActions),
+        migrateDown: config.sqlActions.migrateDown.bind(config.sqlActions),
+        migrateUp: config.sqlActions.migrateUp.bind(config.sqlActions),
       },
     });
 

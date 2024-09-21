@@ -1,6 +1,6 @@
 {
   "name": "sql-migrations-core",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Database framework-agnostic solution for migrations with zero dependencies",
   "main": "dist/index.js",
   "repository": "https://github.com/siranweb/sql-migrations-core.git",

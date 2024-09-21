@@ -169,7 +169,7 @@ export class MigrationsCore implements IMigrationsCore {
   ): Promise<void> {
     await executeWithChunks(names, chunkSize ?? 0, async (names) => {
       const migrations = await Promise.all(
-        names.map((name) => this.localMigrations.getMigration(name, 'down')),
+        names.map((name) => this.localMigrations.getMigration(name, direction)),
       );
 
       const existMigrations = migrations.filter((migration) => !!migration) as Migration[];

@@ -78,45 +78,49 @@ import { db } from './database';
 // In this example I'm just showing a minimal SQL implementation.
 
 const migrationsCore = MigrationsCore.create({
-  path: path.join('/migrations'),
+  path: path.join("/migrations"),
   sqlActions: {
-    async createMigrationTable() {
-      await db.schema.createTable('__migrations')
+    async createMigrationTable(): Promise<void> {
+      await db.schema
+        .createTable("__migration")
         .ifNotExists()
-        .addColumn('name', 'varchar', (cb) => cb.notNull().unique())
-        .addColumn('migrated_at', 'timestamp', (cb) =>
-          cb.notNull().defaultTo(sql`now()`)
+        .addColumn("name", "varchar", (cb) => cb.notNull().unique())
+        .addColumn("migrated_at", "timestamp", (cb) =>
+          cb.notNull().defaultTo(sql`current_timestamp`)
         )
-        .execute()
-    },
-
-    async getMigrationsNames() {
-      const records = await db.selectFrom('__migrations')
-        .select('name')
         .execute();
-      return records.map(r => r.name);
     },
 
-    async migrateDown(migrations) {
+    async getMigrationsNames(): Promise<string[]> {
+      const records = await db
+        .selectFrom("__migration")
+        .select("name")
+        .execute();
+      return records.map((r) => r.name);
+    },
+
+    async migrateDown(migrations: Migration[]): Promise<void> {
       await db.transaction().execute(async (trx) => {
         for (const migration of migrations) {
-          await trx.deleteFrom('__migrations')
-            .where({ name: migration.name })
+          await trx
+            .deleteFrom("__migration")
+            .where("name", "=", migration.name)
             .execute();
-          await sql`${migration.sql}`.execute(trx);
+          await sql.raw(migration.sql).execute(trx);
         }
-      })
+      });
     },
 
-    async migrateUp(migrations) {
+    async migrateUp(migrations: Migration[]): Promise<void> {
       await db.transaction().execute(async (trx) => {
         for (const migration of migrations) {
-          await trx.insertInto('__migrations')
+          await trx
+            .insertInto("__migration")
             .values({ name: migration.name })
             .execute();
-          await sql`${migration.sql}`.execute(trx);
+          await sql.raw(migration.sql).execute(trx);
         }
-      })
+      });
     },
   },
 });

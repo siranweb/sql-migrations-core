@@ -10,7 +10,7 @@
     "sql"
   ],
   "scripts": {
-    "test": "jest",
+    "test": "jest --runInBand",
     "build": "tsc",
     "ts-check": "tsc --noEmit",
     "lint": "eslint --max-warnings 0 --ext .ts lib",

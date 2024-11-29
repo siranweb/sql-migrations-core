@@ -15,6 +15,11 @@ export type MigrationStatus = {
   synced: boolean;
 };
 
+export type Postfix = {
+  up: string;
+  down: string;
+};
+
 export type CreateMigrationsTableFunc = () => Promise<void>;
 export type MigrateUpFunc = (migrations: Migration[]) => Promise<void>;
 export type MigrateDownFunc = (migrations: Migration[]) => Promise<void>;

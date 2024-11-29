@@ -46,13 +46,3 @@ export type MigrationNamesSequence = {
   names: string[];
   direction: MigrationDirection;
 };
-
-export type LocalMigrationsConfig = {
-  postfix: Postfix;
-  dirPath: string;
-};
-
-export type Postfix = {
-  up: string;
-  down: string;
-};

@@ -262,12 +262,12 @@ const migrationsCore = new MigrationsCore(localMigrations, storedMigrations);
 
 <!-- TOC --><a name="methods-of-migrationscore-object"></a>
 ## Methods of `migrationsCore` object
-See [migrations-core.interface.ts](./lib/migrations-core/types/migrations-core.interface.ts)
+See [migrations-core.interface.ts](lib/types/migrations-core.interface.ts)
 
 <!-- TOC --><a name="methods-of-localmigrations-object"></a>
 ## Methods of `localMigrations` object
-See [local-migrations.interface.ts](./lib/migrations-core/types/local-migrations.interface.ts)
+See [local-migrations.interface.ts](lib/types/local-migrations.interface.ts)
 
 <!-- TOC --><a name="methods-of-storedmigrations-object"></a>
 ## Methods of `storedMigrations` object
-See [stored-migrations.interface.ts](./lib/migrations-core/types/stored-migrations.interface.ts)
+See [stored-migrations.interface.ts](lib/types/stored-migrations.interface.ts)

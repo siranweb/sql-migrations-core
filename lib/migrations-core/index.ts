@@ -26,8 +26,8 @@ export class MigrationsCore implements IMigrationsCore {
   }
 
   constructor(
-    public readonly migrationFilesStorage: IMigrationFilesStorage,
-    public readonly migrationsStorage: IMigrationsStorage,
+    private readonly migrationFilesStorage: IMigrationFilesStorage,
+    private readonly migrationsStorage: IMigrationsStorage,
   ) {}
 
   public async init(): Promise<void> {

@@ -4,7 +4,7 @@ import {
   GetMigrationsNamesFunc,
   MigrateDownFunc,
   MigrateUpFunc,
-  MigrationResult,
+  MigrationStep,
   MigrationStatus,
 } from './shared';
 
@@ -13,13 +13,13 @@ export interface IMigrationsCore {
    * Run one migration up.
    * @returns Result of migration that was executed.
    */
-  up(): Promise<MigrationResult | null>;
+  up(): Promise<MigrationStep | null>;
 
   /**
    * Run one migration down.
    * @returns Result of migration that was executed.
    */
-  down(): Promise<MigrationResult | null>;
+  down(): Promise<MigrationStep | null>;
 
   /**
    * Run pending up migrations from the latest.
@@ -27,7 +27,7 @@ export interface IMigrationsCore {
    * @param [chunkSize] Size of chunk.
    * @returns Results of migrations that were executed.
    */
-  toLatest(chunkSize?: number): Promise<MigrationResult[]>;
+  toLatest(chunkSize?: number): Promise<MigrationStep[]>;
 
   /**
    * Run all pending up migrations.
@@ -35,7 +35,7 @@ export interface IMigrationsCore {
    * @param [chunkSize] Size of chunk.
    * @returns Results of migrations that were executed.
    */
-  sync(chunkSize?: number): Promise<MigrationResult[]>;
+  sync(chunkSize?: number): Promise<MigrationStep[]>;
 
   /**
    * Get status about pending and finished migrations.
@@ -50,7 +50,7 @@ export interface IMigrationsCore {
    * @param [chunkSize] Size of chunk.
    * @returns Results of migrations that were executed.
    */
-  to(migrationName: string, chunkSize?: number): Promise<MigrationResult[]>;
+  to(migrationName: string, chunkSize?: number): Promise<MigrationStep[]>;
 
   /**
    * Runs all down migrations.
@@ -59,7 +59,7 @@ export interface IMigrationsCore {
    * If not provided or `0` - migrations will not be split on chunks.
    * @returns Results of migrations that were executed.
    */
-  drop(chunkSize?: number): Promise<MigrationResult[]>;
+  drop(chunkSize?: number): Promise<MigrationStep[]>;
 
   /**
    * Create blank migration files in provided path.

@@ -5,7 +5,7 @@ export type Migration = {
   name: string;
 };
 
-export type MigrationResult = {
+export type MigrationStep = {
   name: string;
   direction: MigrationDirection;
 };
@@ -25,3 +25,7 @@ export type MigrateUpFunc = (migrations: Migration[]) => Promise<void>;
 export type MigrateDownFunc = (migrations: Migration[]) => Promise<void>;
 export type GetMigrationsNamesFunc = () => Promise<string[]>;
 export type GetLastMigrationNameFunc = () => Promise<string | null>;
+
+export interface Iterable<T> {
+  [Symbol.iterator](): Iterator<T>;
+}

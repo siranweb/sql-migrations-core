@@ -25,7 +25,7 @@ describe('MigrationFilesStorage', () => {
 
   it('createEmptyMigrations(): should create empty migration files', async () => {
     const migrationFilesStorage = new MigrationFilesStorage(config);
-    await migrationFilesStorage.createEmptyMigrations('example');
+    await migrationFilesStorage.createEmptyMigrationFiles('example');
     expect(checkIsExists(path.join(migrationsDir, 'example.up.sql'))).toBe(true);
     expect(checkIsExists(path.join(migrationsDir, 'example.down.sql'))).toBe(true);
   });

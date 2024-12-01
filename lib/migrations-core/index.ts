@@ -1,8 +1,14 @@
 import { MigrationFilesStorage } from '../migration-files-storage';
 import { MigrationsStorage } from '../migrations-storage';
-import { IMigrationsCore, MigrationsCoreConfig } from './types/migrations-core.interface';
-import { MigrationDirection, MigrationResult } from '../types/shared';
+import {
+  IMigrationsCore,
+  MigrateOptions,
+  MigrationsCoreConfig,
+} from './types/migrations-core.interface';
+import { MigrationDirection, MigrationStep } from '../types/shared';
 import { MigrationFile } from '../migration-files-storage/migration-file';
+import { IMigrationFilesStorage } from '../migration-files-storage/types/migration-files-storage.interface';
+import { IMigrationsStorage } from '../migrations-storage/types/migrations-storage.interface';
 
 export class MigrationsCore implements IMigrationsCore {
   static create(config: MigrationsCoreConfig): MigrationsCore {
@@ -20,93 +26,166 @@ export class MigrationsCore implements IMigrationsCore {
   }
 
   constructor(
-    private readonly migrationFilesStorage: MigrationFilesStorage,
-    private readonly migrationsStorage: MigrationsStorage,
+    public readonly migrationFilesStorage: IMigrationFilesStorage,
+    public readonly migrationsStorage: IMigrationsStorage,
   ) {}
 
-  public async createEmptyMigrations(title: string): Promise<string> {
+  public async init(): Promise<void> {
+    await this.migrationsStorage.initTable();
+  }
+
+  public async createEmptyMigrationFiles(title: string): Promise<string> {
     const timestamp = Date.now();
 
     const migrationName = this.buildMigrationName(title, timestamp);
-    await this.migrationFilesStorage.createEmptyMigrations(migrationName);
+    await this.migrationFilesStorage.createEmptyMigrationFiles(migrationName);
 
     return migrationName;
   }
 
-  public async up(): Promise<MigrationResult | null> {
-    return await this.migrateOne('up');
+  public async up(options: MigrateOptions = {}): Promise<MigrationStep | null> {
+    const step = await this.getOneStep('up');
+    if (!step) {
+      return null;
+    }
+
+    await this.run([step], options);
+    return step;
   }
 
-  public async down(): Promise<MigrationResult | null> {
-    return await this.migrateOne('down');
+  public async down(options: MigrateOptions = {}): Promise<MigrationStep | null> {
+    const step = await this.getOneStep('down');
+    if (!step) {
+      return null;
+    }
+
+    await this.run([step], options);
+    return step;
   }
 
-  public async sync(): Promise<MigrationResult[]> {
-    return await this.migrateAll('up');
+  public async upToLatest(options: MigrateOptions = {}): Promise<MigrationStep[]> {
+    const steps = await this.getSteps('up');
+    await this.run(steps, options);
+    return steps;
   }
 
-  private async migrateOne(direction: MigrationDirection): Promise<MigrationResult | null> {
-    await this.migrationsStorage.initTable();
+  public async drop(options: MigrateOptions = {}): Promise<MigrationStep[]> {
+    const steps = await this.getSteps('down');
+    await this.run(steps, options);
+    return steps;
+  }
+
+  public async sync(options: MigrateOptions = {}): Promise<MigrationStep[]> {
+    const syncSteps = await this.getSyncSteps();
+    await this.run(syncSteps, options);
+    return syncSteps;
+  }
+
+  public async run(migrationsSteps: MigrationStep[], options: MigrateOptions = {}): Promise<void> {
+    const migrationFiles = await Promise.all(
+      migrationsSteps.map((step) =>
+        this.migrationFilesStorage.getMigrationFile(step.name, step.direction),
+      ),
+    );
+
+    for (const migrationFile of migrationFiles) {
+      if (!options.dry) {
+        await this.executeMigrationFile(migrationFile);
+      }
+    }
+  }
+
+  private async getSyncSteps(): Promise<MigrationStep[]> {
+    const migrationsNames = await this.migrationsStorage.getMigrationsNames();
+    const localMigrationsNames = await this.migrationFilesStorage.getMigrationsNames();
+    const total = Math.max(migrationsNames.length, localMigrationsNames.length);
+
+    const downMigrationNames: string[] = [];
+    const upMigrationNames: string[] = [];
+    let isDifferent = false;
+    for (let i = 0; i < total; i++) {
+      const localMigrationName = localMigrationsNames[i];
+      const migrationName = migrationsNames[i];
+
+      if (localMigrationName !== migrationName) {
+        isDifferent = true;
+      }
+
+      if (localMigrationName === migrationName) {
+        if (isDifferent) {
+          downMigrationNames.unshift(migrationName);
+          upMigrationNames.push(localMigrationName);
+        }
+      } else if (!localMigrationName) {
+        downMigrationNames.unshift(migrationName);
+      } else if (!migrationName) {
+        upMigrationNames.push(localMigrationName);
+      } else {
+        downMigrationNames.unshift(migrationName);
+        upMigrationNames.push(localMigrationName);
+      }
+    }
+
+    const downMigrationSteps: MigrationStep[] = downMigrationNames.map((name) => ({
+      name,
+      direction: 'down',
+    }));
+    const upMigrationSteps: MigrationStep[] = upMigrationNames.map((name) => ({
+      name,
+      direction: 'up',
+    }));
+    return downMigrationSteps.concat(upMigrationSteps);
+  }
+
+  private async getOneStep(direction: MigrationDirection): Promise<MigrationStep | null> {
+    const sequence = await this.migrationFilesStorage.getSequence(direction);
 
     const latestMigrationName = await this.migrationsStorage.getLatestMigrationName();
-
-    const sequence = await this.migrationFilesStorage.getSequence(direction);
-    sequence.setCursor(latestMigrationName ?? undefined);
+    if (latestMigrationName) {
+      sequence.to(latestMigrationName);
+    }
 
     if (direction === 'up') {
       sequence.next();
     }
 
-    const migrationFile = sequence.current();
-    if (!migrationFile) return null;
-
-    await this.migrationsStorage.executeMigration(
-      migrationFile.name,
-      await migrationFile.content(),
-      direction,
-    );
+    if (!sequence.current) {
+      return null;
+    }
 
     return {
-      name: migrationFile.name,
+      name: sequence.current.name,
       direction,
     };
   }
 
-  private async migrateAll(direction: MigrationDirection): Promise<MigrationResult[]> {
-    await this.migrationsStorage.initTable();
+  private async getSteps(direction: MigrationDirection): Promise<MigrationStep[]> {
+    const sequence = await this.migrationFilesStorage.getSequence(direction);
 
     const latestMigrationName = await this.migrationsStorage.getLatestMigrationName();
 
+    // If no migrations to down - skip
     if (direction === 'down' && !latestMigrationName) {
       return [];
     }
 
-    const sequence = await this.migrationFilesStorage.getSequence(direction);
-    sequence.setCursor(latestMigrationName ?? undefined);
+    if (latestMigrationName) {
+      sequence.to(latestMigrationName);
+    }
 
     if (direction === 'up') {
       sequence.next();
     }
 
-    const migrationFiles: MigrationFile[] = [];
+    return Array.from(sequence);
+  }
 
-    while (true) {
-      const migrationFile = sequence.current();
-      if (!migrationFile) {
-        break;
-      }
-      migrationFiles.push(migrationFile);
-      await this.migrationsStorage.executeMigration(
-        migrationFile.name,
-        await migrationFile.content(),
-        direction,
-      );
-    }
-
-    return migrationFiles.map((migrationFile) => ({
-      name: migrationFile.name,
-      direction,
-    }));
+  private async executeMigrationFile(migrationFile: MigrationFile): Promise<void> {
+    await this.migrationsStorage.executeMigration(
+      migrationFile.name,
+      await migrationFile.content(),
+      migrationFile.direction,
+    );
   }
 
   private buildMigrationName(title: string, timestamp: number): string {

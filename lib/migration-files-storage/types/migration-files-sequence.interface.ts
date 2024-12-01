@@ -1,8 +1,16 @@
-export interface IMigrationFilesSequence {
+import { Iterable } from '../../types/shared';
+import { MigrationFile } from '../migration-file';
+
+export interface IMigrationFilesSequence extends Iterable<MigrationFile> {
   /**
    * Sets cursor based on migrationName.
-   * If migrationName not passed - resets start position.
    * @param migrationName Name of migration.
    */
-  setCursor(migrationName?: string): void;
+  to(migrationName: string): void;
+
+  rewind(): void;
+
+  get current(): MigrationFile | undefined;
+
+  next(): IteratorResult<MigrationFile>;
 }

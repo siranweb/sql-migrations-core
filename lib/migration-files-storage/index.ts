@@ -3,6 +3,11 @@ import fsp from 'fs/promises';
 import path from 'path';
 import { MigrationFilesSequence } from './migration-files-sequence';
 import { IMigrationFilesStorage } from './types/migration-files-storage.interface';
+import { ascSort } from '../utils/sorting';
+import { getNumPrefix } from '../utils/split';
+import { MigrationFile } from './migration-file';
+import { checkIsFileExists } from '../utils/fs';
+import { MigrationFileNotFoundError } from '../errors/migration-file-not-found.error';
 
 export class MigrationFilesStorage implements IMigrationFilesStorage {
   private readonly postfix: Postfix;
@@ -13,7 +18,7 @@ export class MigrationFilesStorage implements IMigrationFilesStorage {
     this.dirPath = config.dirPath;
   }
 
-  public async createEmptyMigrations(name: string): Promise<void> {
+  public async createEmptyMigrationFiles(name: string): Promise<void> {
     const fileNames = [this.buildFileName(name, 'up'), this.buildFileName(name, 'down')];
     const filePaths = fileNames.map((fileName) => this.buildFilePath(fileName));
 
@@ -28,6 +33,26 @@ export class MigrationFilesStorage implements IMigrationFilesStorage {
     return await MigrationFilesSequence.from(this.dirPath, direction, options);
   }
 
+  public async getMigrationFile(
+    migrationName: string,
+    direction: MigrationDirection,
+  ): Promise<MigrationFile> {
+    const source = path.join(this.dirPath, `${migrationName}${this.postfix[direction]}`);
+    const isExists = await checkIsFileExists(source);
+    if (!isExists) {
+      throw new MigrationFileNotFoundError(migrationName);
+    }
+    return MigrationFile.create(source, { postfix: this.postfix });
+  }
+
+  public async getMigrationsNames(): Promise<string[]> {
+    const migrationsFileNames = await fsp.readdir(this.dirPath);
+    const fileNamesSet = new Set(
+      migrationsFileNames.map((fileName) => this.getNameFromFileName(fileName)),
+    );
+    return Array.from(fileNamesSet).sort((a, b) => ascSort(getNumPrefix(a), getNumPrefix(b)));
+  }
+
   private buildFileName(name: string, direction: MigrationDirection): string {
     return `${name}${this.postfix[direction]}`;
   }
@@ -38,6 +63,11 @@ export class MigrationFilesStorage implements IMigrationFilesStorage {
 
   private async createEmptyFile(filePath: string): Promise<void> {
     await fsp.writeFile(filePath, '', 'utf8');
+  }
+
+  private getNameFromFileName(fileName: string): string {
+    const postfix = fileName.endsWith(this.postfix.up) ? this.postfix.up : this.postfix.down;
+    return fileName.split(postfix)[0];
   }
 }
 

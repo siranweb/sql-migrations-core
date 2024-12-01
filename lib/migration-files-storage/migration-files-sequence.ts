@@ -8,7 +8,7 @@ import { IMigrationFilesSequence } from './types/migration-files-sequence.interf
 import { getNumPrefix } from '../utils/split';
 
 export class MigrationFilesSequence implements IMigrationFilesSequence {
-  private currentIdx = -1;
+  private currentIdx = 0;
 
   public static async from(
     source: string,
@@ -23,12 +23,7 @@ export class MigrationFilesSequence implements IMigrationFilesSequence {
 
   constructor(private readonly files: MigrationFile[]) {}
 
-  public setCursor(migrationName?: string): void {
-    if (typeof migrationName !== 'string') {
-      this.currentIdx = -1;
-      return;
-    }
-
+  public to(migrationName: string): void {
     const idx = this.files.findIndex((migrationFile) => migrationFile.name === migrationName);
     if (idx === -1) {
       throw new MigrationFileNotFoundError(migrationName);
@@ -36,17 +31,31 @@ export class MigrationFilesSequence implements IMigrationFilesSequence {
     this.currentIdx = idx;
   }
 
-  public current(): MigrationFile | null {
+  public rewind(): void {
+    this.currentIdx = 0;
+  }
+
+  get current(): MigrationFile | undefined {
     const migrationFile = this.files[this.currentIdx];
     if (!migrationFile) {
-      return null;
+      return undefined;
     }
 
     return migrationFile;
   }
 
-  public next(): void {
-    this.currentIdx++;
+  public next(): IteratorResult<MigrationFile> {
+    if (this.currentIdx <= this.files.length - 1) {
+      return { done: false, value: this.files[this.currentIdx++] };
+    } else {
+      return { done: true, value: undefined };
+    }
+  }
+
+  public [Symbol.iterator](): Iterator<MigrationFile> {
+    return {
+      next: this.next.bind(this),
+    };
   }
 
   private static async getFileNames(

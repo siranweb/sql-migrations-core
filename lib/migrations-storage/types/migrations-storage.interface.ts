@@ -7,7 +7,7 @@ export interface IMigrationsStorage {
   initTable(): Promise<void>;
 
   /**
-   * Returns executed migration names.
+   * Returns sorted executed migration names.
    */
   getMigrationsNames(): Promise<string[]>;
 

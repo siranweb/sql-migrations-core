@@ -57,22 +57,19 @@ describe('MigrationFilesSequence', () => {
 
     const sequence = await MigrationFilesSequence.from(migrationsDir, 'up', migrationFileOptions);
 
-    expect(sequence.current()).toBe(null);
+    expect(sequence.current).not.toBe(undefined);
+    expect(sequence.current!.name).toBe('1-example');
     sequence.next();
 
-    expect(sequence.current()).not.toBe(null);
-    expect(sequence.current()!.name).toBe('1-example');
+    expect(sequence.current).not.toBe(undefined);
+    expect(sequence.current!.name).toBe('2-example');
     sequence.next();
 
-    expect(sequence.current()).not.toBe(null);
-    expect(sequence.current()!.name).toBe('2-example');
+    expect(sequence.current).not.toBe(undefined);
+    expect(sequence.current!.name).toBe('123-example');
     sequence.next();
 
-    expect(sequence.current()).not.toBe(null);
-    expect(sequence.current()!.name).toBe('123-example');
-    sequence.next();
-
-    expect(sequence.current()).toBe(null);
+    expect(sequence.current).toBe(undefined);
   });
 
   test('Should iterate down migrations', async () => {
@@ -85,22 +82,19 @@ describe('MigrationFilesSequence', () => {
 
     const sequence = await MigrationFilesSequence.from(migrationsDir, 'down', migrationFileOptions);
 
-    expect(sequence.current()).toBe(null);
+    expect(sequence.current).not.toBe(undefined);
+    expect(sequence.current!.name).toBe('123-example');
     sequence.next();
 
-    expect(sequence.current()).not.toBe(null);
-    expect(sequence.current()!.name).toBe('123-example');
+    expect(sequence.current).not.toBe(undefined);
+    expect(sequence.current!.name).toBe('2-example');
     sequence.next();
 
-    expect(sequence.current()).not.toBe(null);
-    expect(sequence.current()!.name).toBe('2-example');
-    sequence.next();
-
-    expect(sequence.current()).not.toBe(null);
-    expect(sequence.current()!.name).toBe('1-example');
+    expect(sequence.current).not.toBe(undefined);
+    expect(sequence.current!.name).toBe('1-example');
 
     sequence.next();
-    expect(sequence.current()).toBe(null);
+    expect(sequence.current).toBe(undefined);
   });
 
   test('setCursor(): Should change current file', async () => {
@@ -112,10 +106,10 @@ describe('MigrationFilesSequence', () => {
     await createFile(migrationsDir, '3-example.down.sql');
 
     const sequence = await MigrationFilesSequence.from(migrationsDir, 'up', migrationFileOptions);
-    sequence.setCursor('3-example');
+    sequence.to('3-example');
 
-    expect(sequence.current()).not.toBe(null);
-    expect(sequence.current()!.name).toBe('3-example');
+    expect(sequence.current).not.toBe(null);
+    expect(sequence.current!.name).toBe('3-example');
   });
 
   test('setCursor(): Should reset cursor if migrationName not provided', async () => {
@@ -127,9 +121,9 @@ describe('MigrationFilesSequence', () => {
     await createFile(migrationsDir, '3-example.down.sql');
 
     const sequence = await MigrationFilesSequence.from(migrationsDir, 'up', migrationFileOptions);
-    sequence.setCursor();
+    sequence.rewind();
 
-    expect(sequence.current()).toBe(null);
+    expect(sequence.current).not.toBe(undefined);
   });
 
   test('setCursor(): Should throw error if migrationName not found', async () => {
@@ -144,7 +138,7 @@ describe('MigrationFilesSequence', () => {
 
     let err;
     try {
-      sequence.setCursor('unknown');
+      sequence.to('unknown');
     } catch (e) {
       err = e;
     }

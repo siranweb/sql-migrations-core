@@ -1,10 +1,6 @@
 import { createFile, mkDirSafe, rmDirSafe } from '../../helpers/fs.helpers';
 import path from 'path';
-import {
-  MigrationFile,
-  MigrationFileOptions,
-} from '../../../lib/migration-files-storage/migration-file';
-import { FileSourceWrongDirectionError } from '../../../lib/errors/file-source-wrong-direction.error';
+import { MigrationFile, MigrationFileOptions, FileSourceWrongDirectionError } from '../../../lib';
 
 describe('MigrationFile', () => {
   const migrationsDir = path.join(__dirname, 'migrations');
@@ -48,13 +44,8 @@ describe('MigrationFile', () => {
   test('static create(): Failed with wrong postfix', async () => {
     const filePath = await createFile(migrationsDir, 'example.up.wrong.sql');
 
-    let err;
-    try {
-      MigrationFile.create(filePath, migrationFileOptions);
-    } catch (e) {
-      err = e;
-    }
-
-    expect(err).toBeInstanceOf(FileSourceWrongDirectionError);
+    expect(() => MigrationFile.create(filePath, migrationFileOptions)).toThrow(
+      FileSourceWrongDirectionError,
+    );
   });
 });

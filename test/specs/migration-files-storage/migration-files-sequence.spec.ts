@@ -1,11 +1,11 @@
 import { createFile, mkDirSafe, rmDirSafe } from '../../helpers/fs.helpers';
 import path from 'path';
-import { MigrationFile } from '../../../lib/migration-files-storage/migration-file';
 import {
   MigrationFilesSequence,
   MigrationFilesSequenceOptions,
-} from '../../../lib/migration-files-storage/migration-files-sequence';
-import { MigrationFileNotFoundError } from '../../../lib/errors/migration-file-not-found.error';
+  MigrationFileNotFoundError,
+  MigrationFile,
+} from '../../../lib';
 
 describe('MigrationFilesSequence', () => {
   const migrationsDir = path.join(__dirname, 'migrations');
@@ -26,9 +26,7 @@ describe('MigrationFilesSequence', () => {
 
   test('constructor(): Create instance', async () => {
     const filePath1 = await createFile(migrationsDir, '1-example.up.sql');
-    // await createFile(migrationsDir, '1-example.down.sql');
     const filePath2 = await createFile(migrationsDir, '2-example.up.sql');
-    // await createFile(migrationsDir, '2-example.down.sql');
     const migrationFiles: MigrationFile[] = [
       new MigrationFile(filePath1, '1-example', 'up'),
       new MigrationFile(filePath2, '2-example', 'up'),
@@ -112,20 +110,6 @@ describe('MigrationFilesSequence', () => {
     expect(sequence.current!.name).toBe('3-example');
   });
 
-  test('setCursor(): Should reset cursor if migrationName not provided', async () => {
-    await createFile(migrationsDir, '1-example.up.sql');
-    await createFile(migrationsDir, '1-example.down.sql');
-    await createFile(migrationsDir, '2-example.up.sql');
-    await createFile(migrationsDir, '2-example.down.sql');
-    await createFile(migrationsDir, '3-example.up.sql');
-    await createFile(migrationsDir, '3-example.down.sql');
-
-    const sequence = await MigrationFilesSequence.from(migrationsDir, 'up', migrationFileOptions);
-    sequence.rewind();
-
-    expect(sequence.current).not.toBe(undefined);
-  });
-
   test('setCursor(): Should throw error if migrationName not found', async () => {
     await createFile(migrationsDir, '1-example.up.sql');
     await createFile(migrationsDir, '1-example.down.sql');
@@ -144,5 +128,19 @@ describe('MigrationFilesSequence', () => {
     }
 
     expect(err).toBeInstanceOf(MigrationFileNotFoundError);
+  });
+
+  test('rewind(): Should reset cursor', async () => {
+    await createFile(migrationsDir, '1-example.up.sql');
+    await createFile(migrationsDir, '1-example.down.sql');
+    await createFile(migrationsDir, '2-example.up.sql');
+    await createFile(migrationsDir, '2-example.down.sql');
+    await createFile(migrationsDir, '3-example.up.sql');
+    await createFile(migrationsDir, '3-example.down.sql');
+
+    const sequence = await MigrationFilesSequence.from(migrationsDir, 'up', migrationFileOptions);
+    sequence.rewind();
+
+    expect(sequence.current).not.toBe(undefined);
   });
 });

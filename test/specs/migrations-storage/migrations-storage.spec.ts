@@ -1,5 +1,4 @@
-import { IMigrationsStorageAdapter } from '../../../lib/migrations-storage/types/migrations-storage.interface';
-import { MigrationsStorage } from '../../../lib/migrations-storage';
+import { MigrationsStorage, IMigrationsStorageAdapter } from '../../../lib';
 
 describe('MigrationsStore', () => {
   const adapter: IMigrationsStorageAdapter = {

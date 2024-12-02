@@ -12,3 +12,5 @@ export * from './migrations-storage';
 export * from './migrations-storage/types/migrations-storage.interface';
 
 export * from './types/shared';
+export * from './errors/file-source-wrong-direction.error';
+export * from './errors/migration-file-not-found.error';

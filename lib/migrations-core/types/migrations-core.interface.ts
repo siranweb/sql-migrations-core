@@ -73,6 +73,12 @@ export type MigrationsCoreConfig = {
     up: string;
     down: string;
   };
+
+  /**
+   * Custom logger.
+   * If not provided - default `logger` will be used.
+   */
+  logger?: IMigrationsLogger;
 };
 
 export type MigrateOptions = {
@@ -82,3 +88,7 @@ export type MigrateOptions = {
    */
   dry?: boolean;
 };
+
+export interface IMigrationsLogger {
+  info(msg: string): void;
+}

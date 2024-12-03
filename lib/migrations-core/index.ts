@@ -2,6 +2,7 @@ import { MigrationFilesStorage } from '../migration-files-storage';
 import { MigrationsStorage } from '../migrations-storage';
 import {
   IMigrationsCore,
+  IMigrationsLogger,
   MigrateOptions,
   MigrationsCoreConfig,
 } from './types/migrations-core.interface';
@@ -22,13 +23,20 @@ export class MigrationsCore implements IMigrationsCore {
 
     const migrationsStorage = new MigrationsStorage(config.adapter);
 
-    return new MigrationsCore(migrationFilesStorage, migrationsStorage);
+    return new MigrationsCore(migrationFilesStorage, migrationsStorage, config.logger);
   }
+
+  private readonly logger: IMigrationsLogger;
 
   constructor(
     private readonly migrationFilesStorage: IMigrationFilesStorage,
     private readonly migrationsStorage: IMigrationsStorage,
-  ) {}
+    logger?: IMigrationsLogger,
+  ) {
+    this.logger = logger ?? {
+      info: console.log,
+    };
+  }
 
   public async init(): Promise<void> {
     await this.migrationsStorage.initTable();
@@ -89,9 +97,7 @@ export class MigrationsCore implements IMigrationsCore {
     );
 
     for (const migrationFile of migrationFiles) {
-      if (!options.dry) {
-        await this.executeMigrationFile(migrationFile);
-      }
+      await this.executeMigrationFile(migrationFile, options.dry);
     }
   }
 
@@ -180,12 +186,16 @@ export class MigrationsCore implements IMigrationsCore {
     return Array.from(sequence).map(this.migrationFileToStep);
   }
 
-  private async executeMigrationFile(migrationFile: MigrationFile): Promise<void> {
-    await this.migrationsStorage.executeMigration(
-      migrationFile.name,
-      await migrationFile.content(),
-      migrationFile.direction,
-    );
+  private async executeMigrationFile(migrationFile: MigrationFile, dry?: boolean): Promise<void> {
+    this.logger.info(`Executing ${migrationFile.direction} migration ${migrationFile.source}.`);
+
+    if (!dry) {
+      await this.migrationsStorage.executeMigration(
+        migrationFile.name,
+        await migrationFile.content(),
+        migrationFile.direction,
+      );
+    }
   }
 
   private buildMigrationName(title: string, timestamp: number): string {

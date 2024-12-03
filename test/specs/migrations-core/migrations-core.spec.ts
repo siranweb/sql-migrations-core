@@ -49,9 +49,12 @@ describe('MigrationsCore', () => {
     'createEmptyMigrationFiles',
   );
   const getSequenceSpy = jest.spyOn(migrationFilesStorage, 'getSequence');
+  const getLocalMigrationsNamesSpy = jest.spyOn(migrationFilesStorage, 'getMigrationsNames');
+
   const initTableSpy = jest.spyOn(migrationsStorage, 'initTable');
   const executeMigrationSpy = jest.spyOn(migrationsStorage, 'executeMigration');
   const getLatestMigrationNameSpy = jest.spyOn(migrationsStorage, 'getLatestMigrationName');
+  const getMigrationsNamesSpy = jest.spyOn(migrationsStorage, 'getMigrationsNames');
 
   beforeEach(async () => {
     await mkDirSafe(migrationsDir);
@@ -415,5 +418,200 @@ describe('MigrationsCore', () => {
       },
     ]);
     expect(executeMigrationSpy).toHaveBeenCalledTimes(0);
+  });
+
+  it('sync(): should not execute migrations if synced', async () => {
+    getMigrationsNamesSpy.mockResolvedValue(['1', '2', '3', '4', '5']);
+    getLocalMigrationsNamesSpy.mockResolvedValue(['1', '2', '3', '4', '5']);
+
+    const steps = await migrationsCore.sync();
+
+    expect(steps).toStrictEqual<MigrationStep[]>([]);
+    expect(executeMigrationSpy).not.toHaveBeenCalled();
+  });
+
+  it('sync(): should execute up migrations if have pending migrations', async () => {
+    getMigrationsNamesSpy.mockResolvedValue(['1', '2', '3', '4']);
+    getLocalMigrationsNamesSpy.mockResolvedValue(['1', '2', '3', '4', '5']);
+
+    const steps = await migrationsCore.sync();
+
+    expect(steps).toStrictEqual<MigrationStep[]>([
+      {
+        name: '5',
+        direction: 'up',
+      },
+    ]);
+    expect(executeMigrationSpy).toHaveBeenCalled();
+  });
+
+  it('sync(): should execute down migrations if have not existing migrations', async () => {
+    getMigrationsNamesSpy.mockResolvedValue(['1', '2', '3', '4', '5']);
+    getLocalMigrationsNamesSpy.mockResolvedValue(['1', '2', '3', '4']);
+
+    const steps = await migrationsCore.sync();
+
+    expect(steps).toStrictEqual<MigrationStep[]>([
+      {
+        name: '5',
+        direction: 'down',
+      },
+    ]);
+    expect(executeMigrationSpy).toHaveBeenCalled();
+  });
+
+  it('sync(): should execute migrations with different history (1)', async () => {
+    getMigrationsNamesSpy.mockResolvedValue(['1', '2', '4', '5', '6']);
+    getLocalMigrationsNamesSpy.mockResolvedValue(['1', '2', '3', '4', '5']);
+
+    const steps = await migrationsCore.sync();
+
+    expect(steps).toStrictEqual<MigrationStep[]>([
+      {
+        name: '6',
+        direction: 'down',
+      },
+      {
+        name: '5',
+        direction: 'down',
+      },
+      {
+        name: '4',
+        direction: 'down',
+      },
+      {
+        name: '3',
+        direction: 'up',
+      },
+      {
+        name: '4',
+        direction: 'up',
+      },
+      {
+        name: '5',
+        direction: 'up',
+      },
+    ]);
+    expect(executeMigrationSpy).toHaveBeenCalled();
+  });
+
+  it('sync(): should execute migrations with different history (2)', async () => {
+    getMigrationsNamesSpy.mockResolvedValue(['1', '2', '4', '5']);
+    getLocalMigrationsNamesSpy.mockResolvedValue(['1', '2', '3', '4', '5']);
+
+    const steps = await migrationsCore.sync();
+
+    expect(steps).toStrictEqual<MigrationStep[]>([
+      {
+        name: '5',
+        direction: 'down',
+      },
+      {
+        name: '4',
+        direction: 'down',
+      },
+      {
+        name: '3',
+        direction: 'up',
+      },
+      {
+        name: '4',
+        direction: 'up',
+      },
+      {
+        name: '5',
+        direction: 'up',
+      },
+    ]);
+    expect(executeMigrationSpy).toHaveBeenCalled();
+  });
+
+  it('sync(): should execute migrations with different history (3)', async () => {
+    getMigrationsNamesSpy.mockResolvedValue(['1', '2', '3a', '4', '5']);
+    getLocalMigrationsNamesSpy.mockResolvedValue(['1', '2', '3', '4', '5']);
+
+    const steps = await migrationsCore.sync();
+
+    expect(steps).toStrictEqual<MigrationStep[]>([
+      {
+        name: '5',
+        direction: 'down',
+      },
+      {
+        name: '4',
+        direction: 'down',
+      },
+      {
+        name: '3a',
+        direction: 'down',
+      },
+      {
+        name: '3',
+        direction: 'up',
+      },
+      {
+        name: '4',
+        direction: 'up',
+      },
+      {
+        name: '5',
+        direction: 'up',
+      },
+    ]);
+    expect(executeMigrationSpy).toHaveBeenCalled();
+  });
+
+  it('sync(): should execute migrations with different history (4)', async () => {
+    getMigrationsNamesSpy.mockResolvedValue(['1', '2', '3a', '4', '5', '6']);
+    getLocalMigrationsNamesSpy.mockResolvedValue(['1', '2', '3', '4', '5']);
+
+    const steps = await migrationsCore.sync();
+
+    expect(steps).toStrictEqual<MigrationStep[]>([
+      {
+        name: '6',
+        direction: 'down',
+      },
+      {
+        name: '5',
+        direction: 'down',
+      },
+      {
+        name: '4',
+        direction: 'down',
+      },
+      {
+        name: '3a',
+        direction: 'down',
+      },
+      {
+        name: '3',
+        direction: 'up',
+      },
+      {
+        name: '4',
+        direction: 'up',
+      },
+      {
+        name: '5',
+        direction: 'up',
+      },
+    ]);
+    expect(executeMigrationSpy).toHaveBeenCalled();
+  });
+
+  it('sync(): should not execute migrations if dry flag passed', async () => {
+    getMigrationsNamesSpy.mockResolvedValue(['1', '2', '3', '4']);
+    getLocalMigrationsNamesSpy.mockResolvedValue(['1', '2', '3', '4', '5']);
+
+    const steps = await migrationsCore.sync({ dry: true });
+
+    expect(steps).toStrictEqual<MigrationStep[]>([
+      {
+        name: '5',
+        direction: 'up',
+      },
+    ]);
+    expect(executeMigrationSpy).not.toHaveBeenCalled();
   });
 });

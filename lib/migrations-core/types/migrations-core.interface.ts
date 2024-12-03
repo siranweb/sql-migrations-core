@@ -1,85 +1,68 @@
-import {
-  CreateMigrationsTableFunc,
-  GetLastMigrationNameFunc,
-  GetMigrationsNamesFunc,
-  MigrateDownFunc,
-  MigrateUpFunc,
-  MigrationResult,
-  MigrationStatus,
-} from './shared';
+import { IMigrationsStorageAdapter } from '../../migrations-storage/types/migrations-storage.interface';
+import { MigrationStep } from '../../types/shared';
 
 export interface IMigrationsCore {
   /**
-   * Run one migration up.
-   * @returns Result of migration that was executed.
+   * Initialization method. Used to init table in database.
+   * Should be called after MigrationsCore instance created.
    */
-  up(): Promise<MigrationResult | null>;
+  init(): Promise<void>;
 
   /**
-   * Run one migration down.
-   * @returns Result of migration that was executed.
+   * Creates empty up and down migration files.
+   * @param title Part of migration name.
    */
-  down(): Promise<MigrationResult | null>;
+  createEmptyMigrationFiles(title: string): Promise<string>;
 
   /**
-   * Run pending up migrations from the latest.
-   * If used with chunks - calls migrate function multiple times one by one.
-   * @param [chunkSize] Size of chunk.
-   * @returns Results of migrations that were executed.
+   * Executes one next up migration if possible.
+   * @param [options] Migration options.
    */
-  toLatest(chunkSize?: number): Promise<MigrationResult[]>;
+  up(options?: MigrateOptions): Promise<MigrationStep | null>;
 
   /**
-   * Run all pending up migrations.
-   * If used with chunks - calls migrate function multiple times one by one.
-   * @param [chunkSize] Size of chunk.
-   * @returns Results of migrations that were executed.
+   * Executes one current down migration if possible.
+   * @param [options] Migration options.
    */
-  sync(chunkSize?: number): Promise<MigrationResult[]>;
+  down(options?: MigrateOptions): Promise<MigrationStep | null>;
 
   /**
-   * Get status about pending and finished migrations.
-   * @returns Statuses of migrations.
+   * Executes all up migrations starting from last executed.
+   * @param [options] Migration options.
    */
-  status(): Promise<MigrationStatus[]>;
+  upToLatest(options?: MigrateOptions): Promise<MigrationStep[]>;
 
   /**
-   * Run all up or down migrations from current to selected.
-   * If used with chunks - calls migrate function multiple times one by one.
-   * @param migrationName Name of selected migration.
-   * @param [chunkSize] Size of chunk.
-   * @returns Results of migrations that were executed.
+   * Executes all down migrations starting from last executed.
+   * @param [options] Migration options.
    */
-  to(migrationName: string, chunkSize?: number): Promise<MigrationResult[]>;
+  drop(options?: MigrateOptions): Promise<MigrationStep[]>;
 
   /**
-   * Runs all down migrations.
-   * If used with chunks - calls migrate function multiple times one by one.
-   * @param [chunkSize] Size of chunk.
-   * If not provided or `0` - migrations will not be split on chunks.
-   * @returns Results of migrations that were executed.
+   * Compares migrations and migrations files and executes up/down
+   * migrations to synchronize them.
+   * @param [options] Migration options.
    */
-  drop(chunkSize?: number): Promise<MigrationResult[]>;
+  sync(options?: MigrateOptions): Promise<MigrationStep[]>;
 
   /**
-   * Create blank migration files in provided path.
-   * @param title Migration title or description. Used to create migration name.
-   * @returns Name of created migration.
+   * Executes migrations by given steps.
+   * @param migrationsSteps Migrations steps to execute up/down.
    */
-  createFiles(title: string): Promise<string>;
+  run(migrationsSteps: MigrationStep[]): Promise<void>;
 }
 
 export type MigrationsCoreConfig = {
   /**
    * Path to migrations directory.
-   * If there is no such path - it will be created.
    */
-  path: string;
+  migrationsDir: string;
 
   /**
-   * Methods that will be triggered during migrations.
+   * Adapter for migrations storage.
+   * Used to execute sql queries.
    */
-  sqlActions: MigrationActions;
+  adapter: IMigrationsStorageAdapter;
 
   /**
    * Postfix of sql migration files.
@@ -89,38 +72,22 @@ export type MigrationsCoreConfig = {
     up: string;
     down: string;
   };
+
+  /**
+   * Custom logger.
+   * If not provided - default `logger` will be used.
+   */
+  logger?: IMigrationsLogger;
 };
 
-export type MigrationActions = {
+export type MigrateOptions = {
   /**
-   * Function that will be triggered to create migration table.
-   * It will be called before each migration action.
-   * Please use `CREATE TABLE IF NOT EXISTS` instruction.
+   * Emulate migrations without actually applying them to database.
+   * Useful to check steps before their launch.
    */
-  createMigrationTable: CreateMigrationsTableFunc;
-
-  /**
-   * Function that will be triggered to up migrations.
-   * @param migrations Array of pending up migrations.
-   */
-  migrateUp: MigrateUpFunc;
-
-  /**
-   * Function that will be triggered to down migrations.
-   * @param migrations Array of pending down migrations.
-   */
-  migrateDown: MigrateDownFunc;
-
-  /**
-   * Function that will be triggered to get stored migrations names.
-   * @returns Array of migration names.
-   */
-  getMigrationsNames: GetMigrationsNamesFunc;
-
-  /**
-   * Function that will be triggered to get last migration name.
-   * If not provided - `getMigrationsNames` will be used instead.
-   * @returns Migration name if exists.
-   */
-  getLastMigrationName?: GetLastMigrationNameFunc;
+  dry?: boolean;
 };
+
+export interface IMigrationsLogger {
+  info(msg: string): void;
+}

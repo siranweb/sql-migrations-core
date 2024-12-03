@@ -1,189 +1,211 @@
-import { IMigrationsCore, MigrationsCoreConfig } from './types/migrations-core.interface';
-import { ILocalMigrations } from './types/local-migrations.interface';
-import { LocalMigrations } from './local-migrations';
-import { IStoredMigrations } from './types/stored-migrations.interface';
-import { StoredMigrations } from './stored-migrations';
-import { executeWithChunks } from '../utils/chunks';
-import { Migration, MigrationDirection, MigrationResult, MigrationStatus } from './types/shared';
+import { MigrationFilesStorage } from '../migration-files-storage';
+import { MigrationsStorage } from '../migrations-storage';
+import {
+  IMigrationsCore,
+  IMigrationsLogger,
+  MigrateOptions,
+  MigrationsCoreConfig,
+} from './types/migrations-core.interface';
+import { MigrationDirection, MigrationStep } from '../types/shared';
+import { MigrationFile } from '../migration-files-storage/migration-file';
+import { IMigrationFilesStorage } from '../migration-files-storage/types/migration-files-storage.interface';
+import { IMigrationsStorage } from '../migrations-storage/types/migrations-storage.interface';
 
 export class MigrationsCore implements IMigrationsCore {
-  private readonly localMigrations: ILocalMigrations;
-  private readonly storedMigrations: IStoredMigrations;
-
   static create(config: MigrationsCoreConfig): MigrationsCore {
-    const localMigrations = new LocalMigrations({
+    const migrationFilesStorage = new MigrationFilesStorage({
       postfix: config.postfix ?? {
         up: '.up.sql',
         down: '.down.sql',
       },
-      dirPath: config.path,
+      migrationsDir: config.migrationsDir,
     });
 
-    const storedMigrations = new StoredMigrations({
-      sqlActions: {
-        createTable: config.sqlActions.createMigrationTable.bind(config.sqlActions),
-        getLastName: config.sqlActions.getLastMigrationName?.bind(config.sqlActions),
-        getNames: config.sqlActions.getMigrationsNames.bind(config.sqlActions),
-        migrateDown: config.sqlActions.migrateDown.bind(config.sqlActions),
-        migrateUp: config.sqlActions.migrateUp.bind(config.sqlActions),
-      },
-    });
+    const migrationsStorage = new MigrationsStorage(config.adapter);
 
-    return new MigrationsCore(localMigrations, storedMigrations);
+    return new MigrationsCore(migrationFilesStorage, migrationsStorage, config.logger);
   }
 
-  constructor(localMigrations: ILocalMigrations, storedMigrations: IStoredMigrations) {
-    this.localMigrations = localMigrations;
-    this.storedMigrations = storedMigrations;
+  private readonly logger: IMigrationsLogger;
+
+  constructor(
+    private readonly migrationFilesStorage: IMigrationFilesStorage,
+    private readonly migrationsStorage: IMigrationsStorage,
+    logger?: IMigrationsLogger,
+  ) {
+    this.logger = logger ?? {
+      info: console.log,
+    };
   }
 
-  public async createFiles(title: string): Promise<string> {
+  public async init(): Promise<void> {
+    await this.migrationsStorage.initTable();
+  }
+
+  public async createEmptyMigrationFiles(title: string): Promise<string> {
     const timestamp = Date.now();
 
-    const migrationName = this.makeName(title, timestamp);
-    await this.localMigrations.create(migrationName);
+    const migrationName = this.buildMigrationName(title, timestamp);
+    await this.migrationFilesStorage.createEmptyMigrationFiles(migrationName);
 
     return migrationName;
   }
 
-  public async sync(chunkSize?: number): Promise<MigrationResult[]> {
-    await this.storedMigrations.initTable();
-
-    const status = await this.status();
-    const unsyncedMigrationsNames = status
-      .filter((migrationStatus) => !migrationStatus.synced)
-      .map((migrationStatus) => migrationStatus.name);
-
-    await this.migrateBunch(unsyncedMigrationsNames, 'up', chunkSize);
-
-    return [];
-  }
-
-  public async status(): Promise<MigrationStatus[]> {
-    await this.storedMigrations.initTable();
-
-    const [localMigrationsNames, storedMigrationsNames] = await Promise.all([
-      this.localMigrations.getMigrationNames(),
-      this.storedMigrations.getMigrationsNames(),
-    ]);
-    const storedMigrationsNamesSet = new Set(storedMigrationsNames);
-
-    return localMigrationsNames.map((name) => ({
-      name,
-      synced: storedMigrationsNamesSet.has(name),
-    }));
-  }
-
-  public async toLatest(chunkSize?: number): Promise<MigrationResult[]> {
-    await this.storedMigrations.initTable();
-
-    const latestStoredMigrationName = await this.storedMigrations.getLatestMigrationName();
-    const { names, direction } =
-      await this.localMigrations.getMigrationNamesSequence(latestStoredMigrationName);
-
-    if (names.length === 0) {
-      return [];
+  public async up(options: MigrateOptions = {}): Promise<MigrationStep | null> {
+    const step = await this.getOneStep('up');
+    if (!step) {
+      return null;
     }
 
-    await this.migrateBunch(names, direction, chunkSize);
-
-    return names.map((name) => ({
-      name,
-      direction,
-    }));
+    await this.run([step], options);
+    return step;
   }
 
-  public async to(migrationName: string, chunkSize?: number): Promise<MigrationResult[]> {
-    await this.storedMigrations.initTable();
+  public async down(options: MigrateOptions = {}): Promise<MigrationStep | null> {
+    const step = await this.getOneStep('down');
+    if (!step) {
+      return null;
+    }
 
-    const latestStoredMigrationName = await this.storedMigrations.getLatestMigrationName();
-    const { names, direction } = await this.localMigrations.getMigrationNamesSequence(
-      latestStoredMigrationName,
-      migrationName,
+    await this.run([step], options);
+    return step;
+  }
+
+  public async upToLatest(options: MigrateOptions = {}): Promise<MigrationStep[]> {
+    const steps = await this.getSteps('up');
+    await this.run(steps, options);
+    return steps;
+  }
+
+  public async drop(options: MigrateOptions = {}): Promise<MigrationStep[]> {
+    const steps = await this.getSteps('down');
+    await this.run(steps, options);
+    return steps;
+  }
+
+  public async sync(options: MigrateOptions = {}): Promise<MigrationStep[]> {
+    const syncSteps = await this.getSyncSteps();
+    await this.run(syncSteps, options);
+    return syncSteps;
+  }
+
+  public async run(migrationsSteps: MigrationStep[], options: MigrateOptions = {}): Promise<void> {
+    const migrationFiles = await Promise.all(
+      migrationsSteps.map((step) =>
+        this.migrationFilesStorage.getMigrationFile(step.name, step.direction),
+      ),
     );
 
-    if (names.length === 0) {
+    for (const migrationFile of migrationFiles) {
+      await this.executeMigrationFile(migrationFile, options.dry);
+    }
+  }
+
+  private async getSyncSteps(): Promise<MigrationStep[]> {
+    const migrationsNames = await this.migrationsStorage.getMigrationsNames();
+    const localMigrationsNames = await this.migrationFilesStorage.getMigrationsNames();
+    const total = Math.max(migrationsNames.length, localMigrationsNames.length);
+
+    const downMigrationNames: string[] = [];
+    const upMigrationNames: string[] = [];
+    let isDifferent = false;
+    for (let i = 0; i < total; i++) {
+      const localMigrationName = localMigrationsNames[i];
+      const migrationName = migrationsNames[i];
+
+      if (localMigrationName !== migrationName) {
+        isDifferent = true;
+      }
+
+      if (localMigrationName === migrationName) {
+        if (isDifferent) {
+          downMigrationNames.unshift(migrationName);
+          upMigrationNames.push(localMigrationName);
+        }
+      } else if (!localMigrationName) {
+        downMigrationNames.unshift(migrationName);
+      } else if (!migrationName) {
+        upMigrationNames.push(localMigrationName);
+      } else {
+        downMigrationNames.unshift(migrationName);
+        upMigrationNames.push(localMigrationName);
+      }
+    }
+
+    const downMigrationSteps: MigrationStep[] = downMigrationNames.map((name) => ({
+      name,
+      direction: 'down',
+    }));
+    const upMigrationSteps: MigrationStep[] = upMigrationNames.map((name) => ({
+      name,
+      direction: 'up',
+    }));
+    return downMigrationSteps.concat(upMigrationSteps);
+  }
+
+  private async getOneStep(direction: MigrationDirection): Promise<MigrationStep | null> {
+    const sequence = await this.migrationFilesStorage.getSequence(direction);
+    const latestMigrationName = await this.migrationsStorage.getLatestMigrationName();
+
+    if (direction === 'down' && !latestMigrationName) {
+      return null;
+    }
+
+    if (latestMigrationName) {
+      sequence.to(latestMigrationName);
+    }
+
+    if (direction === 'up' && latestMigrationName) {
+      sequence.next();
+    }
+
+    if (!sequence.current) {
+      return null;
+    }
+
+    return this.migrationFileToStep(sequence.current);
+  }
+
+  private async getSteps(direction: MigrationDirection): Promise<MigrationStep[]> {
+    const sequence = await this.migrationFilesStorage.getSequence(direction);
+
+    const latestMigrationName = await this.migrationsStorage.getLatestMigrationName();
+
+    if (direction === 'down' && !latestMigrationName) {
       return [];
     }
 
-    await this.migrateBunch(names, direction, chunkSize);
+    if (latestMigrationName) {
+      sequence.to(latestMigrationName);
+    }
 
-    return names.map((name) => ({
-      name,
-      direction,
-    }));
+    if (direction === 'up' && latestMigrationName) {
+      sequence.next();
+    }
+
+    return Array.from(sequence).map(this.migrationFileToStep);
   }
 
-  public async down(): Promise<MigrationResult | null> {
-    await this.storedMigrations.initTable();
+  private async executeMigrationFile(migrationFile: MigrationFile, dry?: boolean): Promise<void> {
+    this.logger.info(`Executing ${migrationFile.direction} migration ${migrationFile.source}.`);
 
-    const latestMigrationName = await this.storedMigrations.getLatestMigrationName();
-    if (!latestMigrationName) return null;
-
-    const migration = await this.localMigrations.getMigration(latestMigrationName, 'down');
-    if (!migration) return null;
-
-    await this.storedMigrations.migrate([migration], 'down');
-
-    return {
-      name: migration.name,
-      direction: 'down',
-    };
-  }
-
-  public async up(): Promise<MigrationResult | null> {
-    await this.storedMigrations.initTable();
-
-    const latestMigrationName = await this.storedMigrations.getLatestMigrationName();
-    if (!latestMigrationName) return null;
-
-    const migration = await this.localMigrations.getNextMigration(latestMigrationName, 'up');
-    if (!migration) return null;
-
-    await this.storedMigrations.migrate([migration], 'up');
-
-    return {
-      name: migration.name,
-      direction: 'up',
-    };
-  }
-
-  public async drop(chunkSize?: number): Promise<MigrationResult[]> {
-    await this.storedMigrations.initTable();
-
-    const storedMigrationsNames = await this.storedMigrations.getMigrationsNames();
-    if (storedMigrationsNames.length === 0) return [];
-
-    await this.migrateBunch(storedMigrationsNames, 'down', chunkSize);
-
-    return storedMigrationsNames.map((name) => ({
-      name,
-      direction: 'down',
-    }));
-  }
-
-  private async migrateBunch(
-    names: string[],
-    direction: MigrationDirection,
-    chunkSize?: number,
-  ): Promise<void> {
-    await executeWithChunks(names, chunkSize ?? 0, async (names) => {
-      const migrations = await Promise.all(
-        names.map((name) => this.localMigrations.getMigration(name, direction)),
+    if (!dry) {
+      await this.migrationsStorage.executeMigration(
+        migrationFile.name,
+        await migrationFile.content(),
+        migrationFile.direction,
       );
-
-      const existMigrations = migrations.filter((migration) => !!migration) as Migration[];
-
-      const areMigrationsMissing = existMigrations.length !== migrations.length;
-      if (areMigrationsMissing) {
-        throw new Error(); // TODO error
-      }
-
-      await this.storedMigrations.migrate(existMigrations, direction);
-    });
+    }
   }
 
-  private makeName(title: string, timestamp: number): string {
+  private buildMigrationName(title: string, timestamp: number): string {
     return `${timestamp.toString()}-${title}`;
+  }
+
+  private migrationFileToStep(migrationFile: MigrationFile): MigrationStep {
+    return {
+      name: migrationFile.name,
+      direction: migrationFile.direction,
+    };
   }
 }

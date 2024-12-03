@@ -1,4 +1,4 @@
-import { MigrationDirection } from '../../types/shared';
+import { MigrationDirection, Postfix } from '../../types/shared';
 import { MigrationFilesSequence } from '../migration-files-sequence';
 import { MigrationFile } from '../migration-file';
 
@@ -29,3 +29,8 @@ export interface IMigrationFilesStorage {
    */
   getMigrationFile(migrationName: string, direction: MigrationDirection): Promise<MigrationFile>;
 }
+
+export type MigrationFilesStorageConfig = {
+  postfix: Postfix;
+  migrationsDir: string;
+};

@@ -14,7 +14,7 @@ describe('MigrationFilesStorage', () => {
     up: '.up.sql',
     down: '.down.sql',
   };
-  const config: MigrationFilesStorageConfig = { dirPath: migrationsDir, postfix };
+  const config: MigrationFilesStorageConfig = { migrationsDir: migrationsDir, postfix };
 
   beforeEach(async () => {
     await mkDirSafe(migrationsDir);

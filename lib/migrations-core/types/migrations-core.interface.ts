@@ -55,9 +55,8 @@ export interface IMigrationsCore {
 export type MigrationsCoreConfig = {
   /**
    * Path to migrations directory.
-   * If there is no such path - it will be created.
    */
-  dirPath: string;
+  migrationsDir: string;
 
   /**
    * Adapter for migrations storage.

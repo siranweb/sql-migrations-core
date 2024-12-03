@@ -18,7 +18,7 @@ export class MigrationsCore implements IMigrationsCore {
         up: '.up.sql',
         down: '.down.sql',
       },
-      dirPath: config.dirPath,
+      migrationsDir: config.migrationsDir,
     });
 
     const migrationsStorage = new MigrationsStorage(config.adapter);

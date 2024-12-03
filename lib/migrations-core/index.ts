@@ -139,13 +139,17 @@ export class MigrationsCore implements IMigrationsCore {
 
   private async getOneStep(direction: MigrationDirection): Promise<MigrationStep | null> {
     const sequence = await this.migrationFilesStorage.getSequence(direction);
-
     const latestMigrationName = await this.migrationsStorage.getLatestMigrationName();
+
+    if (direction === 'down' && !latestMigrationName) {
+      return null;
+    }
+
     if (latestMigrationName) {
       sequence.to(latestMigrationName);
     }
 
-    if (direction === 'up') {
+    if (direction === 'up' && latestMigrationName) {
       sequence.next();
     }
 
@@ -153,10 +157,7 @@ export class MigrationsCore implements IMigrationsCore {
       return null;
     }
 
-    return {
-      name: sequence.current.name,
-      direction,
-    };
+    return this.migrationFileToStep(sequence.current);
   }
 
   private async getSteps(direction: MigrationDirection): Promise<MigrationStep[]> {
@@ -164,7 +165,6 @@ export class MigrationsCore implements IMigrationsCore {
 
     const latestMigrationName = await this.migrationsStorage.getLatestMigrationName();
 
-    // If no migrations to down - skip
     if (direction === 'down' && !latestMigrationName) {
       return [];
     }
@@ -173,11 +173,11 @@ export class MigrationsCore implements IMigrationsCore {
       sequence.to(latestMigrationName);
     }
 
-    if (direction === 'up') {
+    if (direction === 'up' && latestMigrationName) {
       sequence.next();
     }
 
-    return Array.from(sequence);
+    return Array.from(sequence).map(this.migrationFileToStep);
   }
 
   private async executeMigrationFile(migrationFile: MigrationFile): Promise<void> {
@@ -190,5 +190,12 @@ export class MigrationsCore implements IMigrationsCore {
 
   private buildMigrationName(title: string, timestamp: number): string {
     return `${timestamp.toString()}-${title}`;
+  }
+
+  private migrationFileToStep(migrationFile: MigrationFile): MigrationStep {
+    return {
+      name: migrationFile.name,
+      direction: migrationFile.direction,
+    };
   }
 }

@@ -1,4 +1,4 @@
-import { createFile, mkDirSafe, rmDirSafe } from '../../helpers/fs.helpers';
+import { createFile, mkDirSafe, QUERY_CONTENT, rmDirSafe } from '../../helpers/fs.helpers';
 import path from 'path';
 import { MigrationFile, MigrationFileOptions, FileSourceWrongDirectionError } from '../../../lib';
 
@@ -27,7 +27,7 @@ describe('MigrationFile', () => {
     expect(migrationFile.name).toBe('example');
     expect(migrationFile.source).toBe(filePath);
     expect(migrationFile.direction).toBe('up');
-    expect(content).toBe('QUERY CONTENT');
+    expect(content).toBe(QUERY_CONTENT);
   });
 
   test('static create(): Create instance', async () => {
@@ -38,7 +38,7 @@ describe('MigrationFile', () => {
     expect(migrationFile.name).toBe('example');
     expect(migrationFile.source).toBe(filePath);
     expect(migrationFile.direction).toBe('up');
-    expect(content).toBe('QUERY CONTENT');
+    expect(content).toBe(QUERY_CONTENT);
   });
 
   test('static create(): Failed with wrong postfix', async () => {
